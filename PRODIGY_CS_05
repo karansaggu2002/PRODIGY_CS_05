@@ -1,0 +1,86 @@
+from scapy.all import *
+import datetime
+
+# Global variable to track packet count
+packet_count = 0
+
+def analyze_packet(packet):
+    """
+    Analyze and display information from captured packets
+    """
+    global packet_count
+    packet_count += 1
+    
+    # Get current timestamp
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    print(f"\n=== Packet #{packet_count} - {timestamp} ===")
+    
+    # Check if packet has IP layer
+    if IP in packet:
+        src_ip = packet[IP].src
+        dst_ip = packet[IP].dst
+        protocol = packet[IP].proto
+        
+        print(f"Source IP: {src_ip}")
+        print(f"Destination IP: {dst_ip}")
+        
+        # Identify protocol
+        proto_name = {
+            1: "ICMP",
+            6: "TCP",
+            17: "UDP"
+        }.get(protocol, f"Unknown ({protocol})")
+        print(f"Protocol: {proto_name}")
+        
+        # Check for TCP/UDP layers and get ports
+        if TCP in packet:
+            print(f"Source Port: {packet[TCP].sport}")
+            print(f"Dest Port: {packet[TCP].dport}")
+        elif UDP in packet:
+            print(f"Source Port: {packet[UDP].sport}")
+            print(f"Dest Port: {packet[UDP].dport}")
+        
+        # Display payload if present (first 50 bytes)
+        if Raw in packet:
+            payload = packet[Raw].load[:50]  # Limit to 50 bytes
+            try:
+                # Try to decode as ASCII, replace non-printable chars
+                payload_str = ''.join(c if 32 <= ord(c) <= 126 else '.' for c in payload.decode('utf-8', errors='ignore'))
+                print(f"Payload (first 50 bytes): {payload_str}")
+            except:
+                # If not decodable, show hex
+                print(f"Payload (first 50 bytes, hex): {payload.hex()}")
+    else:
+        print("Non-IP packet captured")
+
+def start_sniffing(interface=None, count=10):
+    """
+    Start the packet sniffing process
+    """
+    print("=== Packet Sniffer ===")
+    print(f"Capturing {count} packets...")
+    print("Press Ctrl+C to stop early")
+    print(f"Interface: {interface if interface else 'Default'}")
+    
+    try:
+        # Sniff packets
+        sniff(iface=interface, prn=analyze_packet, count=count, store=0)
+        print(f"\nCaptured {packet_count} packets total")
+    except KeyboardInterrupt:
+        print(f"\nStopped by user. Captured {packet_count} packets total")
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
+def main():
+    print("=== Network Packet Sniffer ===")
+    interface = input("Enter network interface (press Enter for default): ").strip() or None
+    try:
+        packet_limit = int(input("Enter number of packets to capture (default 10): ") or 10)
+        start_sniffing(interface, packet_limit)
+    except ValueError:
+        print("Invalid number, using default (10 packets)")
+        start_sniffing(interface, 10)
+
+if __name__ == "__main__":
+    main()
